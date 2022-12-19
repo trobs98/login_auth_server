@@ -1,58 +1,65 @@
 const express = require('express');
-const crypto = require('crypto');
 const mysqlConnect = require('../mysql-connect');
+const authRoutesHelper = require('../helper/auth-routes-helper');
 const router = express.Router();
-
-const HASH_ITERATIONS = 10000;
-const HASH_KEY_LENGTH = 256;
-const HASH_DIGEST = 'sha256';
 
 router.post('/login', (req, res) => {
     let form = req.body;
     
+    // TODO: Validate form
     let email = form.email;
     let password = form.password;
-    mysqlConnect.authQuery('SELECT * FROM User WHERE email = ?', [email])
-        .then((results) => {
-            
 
+    mysqlConnect.authQuery('SELECT * FROM User WHERE email = ? LIMIT 1', [ email ])
+        .then((result) => {
+            let hashPassword = result.results[0].hash_password;
+            let salt = result.results[0].salt;
 
-            res.send(results);
-            console.log('results: ', results.results);
+            if (authRoutesHelper.verifyPassword(password, hashPassword, salt)) {
+                res.status(201).cookie(email, authRoutesHelper.createCookie(email), { httpOnly: true }).send('Valid password.');
+            }
+            else {
+                res.status(401).send('Invalid password.');
+            }
         })
         .catch((err) => {
             res.send(err);
         });
 });
 
+router.delete('/logout', (req, res) => {
+
+});
+
 router.post('/signup', (req, res) => {
     let form = req.body;
 
+    // TODO: Validate form - ensure account email is unique
     let firstName = form.firstName;
     let lastName = form.lastName;
     let email = form.email;
     let password = form.password;
-    let salt = crypto.randomBytes(256).toString('base64');
+    let salt = authRoutesHelper.createSalt();
     let createDate = Date.now();
 
-    crypto.pbkdf2(password, salt, HASH_ITERATIONS, HASH_KEY_LENGTH, HASH_DIGEST, (err, derivedKey) => {
-        let hashPassword = derivedKey.toString('base64');
+    try {
+        let hashPassword = authRoutesHelper.createPassword(password, salt);
+        
+        mysqlConnect.authQuery('INSERT into User(first_name, last_name, email, hash_password, salt, create_date) VALUES (?,?,?,?,?,?)', [ firstName, lastName, email, hashPassword, salt, createDate ])
+            .then((result) => {
+                res.send(result);
+            })
+            .catch((err) => {
+                res.send(err);
+            });
+    }
+    catch (e) {
+        res.send(e);
+    }
+});
 
-        console.log('hash length: ', hashPassword.length);
-        console.log('salt length: ', salt.length);
+router.post('/forgotpassword', (req, res) => {
 
-        if (err) {
-            res.send(err);
-        } else {
-            mysqlConnect.authQuery('INSERT into User(first_name, last_name, email, hash_password, salt, create_date) VALUES (?,?,?,?,?,?)', [firstName, lastName, email, hashPassword, salt, createDate])
-                .then((result) => {
-                    res.send('Successfully signed up!');
-                })
-                .catch((err) => {
-                    res.send(err);
-                });
-        }
-    })
 });
 
 module.exports = router;
