@@ -1,5 +1,7 @@
+// TODO : Add middleware to verify all non-session related requests
 let authRequest = (req, res, next) => {
-    if (req.baseUrl !== '/') {
+    console.log('req.baseUrl: ', req.baseUrl);
+    if (req.baseUrl !== '/session') {
         //let cookieHeader = req.getHeader('set-cookie').split(/[=;]+/);
 
         console.log('req: ', req.cookies);

@@ -3,7 +3,6 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/auth-routes');
-const authLog = require('./middleware/auth-log');
 const authRequest = require('./middleware/authenticate');
 
 const app = express();
@@ -23,5 +22,4 @@ app.listen(PORT, () => {
 });
 
 app.use(authRequest);
-app.use(authLog);
 app.use('/session/', authRoutes);
