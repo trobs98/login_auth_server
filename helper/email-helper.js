@@ -6,17 +6,19 @@ const emailTemplatePaths = {
     'forgotPassword': '../email_template/forgot-pass-email.html'
 }
 
-let getForgotPassEmail = (password, expirationDate) => {
+let getForgotPasswordEmail = (userId, name, clientUrl, token, expirationDate) => {
     return new Promise((resolve, reject) => {
         fs.readFile(path.resolve(__dirname, emailTemplatePaths.forgotPassword), { encoding: 'utf-8' }, (err, html) => {
-            console.log('emailTemplatePaths.forgotPassword: ', path.resolve(__dirname, emailTemplatePaths.forgotPassword));
             if (err) {
                 reject(err);
             }
     
             let template = handlebars.compile(html);
             let replacements = {
-                password: password,
+                userId: userId,
+                name: name,
+                clientUrl: clientUrl,
+                token: token,
                 expirationDate: expirationDate
             };
     
@@ -26,6 +28,6 @@ let getForgotPassEmail = (password, expirationDate) => {
 };
 
 module.exports = {
-    getForgotPassEmail: getForgotPassEmail,
+    getForgotPasswordEmail: getForgotPasswordEmail,
     emailTemplatePaths: emailTemplatePaths
 };

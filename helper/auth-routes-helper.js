@@ -3,32 +3,32 @@ const jwt = require('jsonwebtoken');
 const generatePassword = require('generate-password');
 const dotenv = require('dotenv');
 const mysqlConnect = require('../mysql-connect');
+const userModel = require('../models/user-model');
 
 const HASH_ITERATIONS = 10000;
 const HASH_KEY_LENGTH = 100;
 const HASH_DIGEST = 'sha256';
-const EXPIRED_DATE = 0;
 
 dotenv.config();
 
 let createHashPassword = (password, salt) => {
-    return crypto.pbkdf2Sync(password, salt, HASH_ITERATIONS, HASH_KEY_LENGTH, HASH_DIGEST).toString('base64');
+    return crypto.pbkdf2Sync(password, salt, HASH_ITERATIONS, HASH_KEY_LENGTH, HASH_DIGEST).toString('hex');
 };
 
 let createResetPasswordDetails = () => {
     let salt = createSalt();
-    let password = createRandomPassword();
+    let token = createRandomToken();
     let expiration = Math.floor(new Date(Date.now() + 30 * 60000).getTime() / 1000);
 
-    return { salt: salt, password: password, expiration: expiration };
+    return { salt: salt, token: token, expiration: expiration };
 };
 
-let createRandomPassword = () => {
-    return generatePassword.generate({ length: 10, numbers: true, symbols: true });
+let createRandomToken = () => {
+    return generatePassword.generate({ length: 25, numbers: true, uppercase: true, lowercase: true });
 };
 
 let createSalt = () => {
-    return crypto.randomBytes(256).toString('base64');
+    return crypto.randomBytes(64).toString('hex');
 };
 
 let verifyPassword = (password, hashPassword, salt) => {
@@ -36,11 +36,11 @@ let verifyPassword = (password, hashPassword, salt) => {
 };
 
 let createCookie = (email) => {
-    return jwt.sign({ data: email }, process.env.TOKEN_SECRET, { expiresIn: '1h' });
+    return jwt.sign({ data: email }, process.env.COOKIE_TOKEN_SECRET, { expiresIn: '1h' });
 };
 
 let verifyCookie = (token, email) => {
-    return jwt.verify(token, process.env.TOKEN_SECRET) == email;
+    return jwt.verify(token, process.env.COOKIE_TOKEN_SECRET) == email;
 };
 
 let logLoginRequest = (email, cookie, loginIP) => {
@@ -57,31 +57,29 @@ let logLoginRequest = (email, cookie, loginIP) => {
     });
 };
 
-let validateTempPassword = (email) => {
-    return new Promise((resolve, reject) => {
-        expireValidTempPassword(email)
-            .then((result) => {
-                let resetPassDetails = createResetPasswordDetails();
-                insertTempPassword(email, createHashPassword(resetPassDetails.password, resetPassDetails.salt), resetPassDetails.salt, resetPassDetails.expiration)
-                    .then((result) => {
-                        resolve({
-                            password: resetPassDetails.password,
-                            expiration: resetPassDetails.expiration
-                        })
-                    })
-                    .catch((err) => {
-                        reject(err);
-                    });
-            })
-            .catch((err) => {
-                reject(err);
+let generateTempToken = (email) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let resetPassDetails = createResetPasswordDetails();
+            let token = createHashPassword(resetPassDetails.token, resetPassDetails.salt);
+    
+            await deleteTempToken(email);
+            await insertTempToken(email, token, resetPassDetails.salt, resetPassDetails.expiration);
+    
+            resolve({
+                token: resetPassDetails.token,
+                expiration: resetPassDetails.expiration
             });
+        }
+        catch(err) {
+            reject(err);
+        }
     });
 };
 
-let insertTempPassword = (email, hashPassword, salt, expiration) => {
+let insertTempToken = (email, hashToken, salt, expiration) => {
     return new Promise((resolve, reject) => {
-        mysqlConnect.authQuery('INSERT INTO ResetPassword (FK_userId, hash_password, salt, expiration_date) VALUES ((SELECT id FROM User WHERE email = ? LIMIT 1),?,?,?)', [ email, hashPassword, salt, expiration ])
+        mysqlConnect.authQuery('INSERT INTO ResetPasswordToken (FK_userId, hash_token, salt, expiration_date) VALUES ((SELECT id FROM User WHERE email = ? LIMIT 1),?,?,?)', [ email, hashToken, salt, expiration ])
             .then((result) => {
                 resolve(result);
             })
@@ -91,9 +89,9 @@ let insertTempPassword = (email, hashPassword, salt, expiration) => {
     });
 };
 
-let expireValidTempPassword = (email) => {
+let deleteTempToken = (email) => {
     return new Promise((resolve, reject) => {
-        mysqlConnect.authQuery('UPDATE ResetPassword SET expiration_date = ? WHERE FK_userId = (SELECT id FROM User WHERE email = ?)', [ EXPIRED_DATE, email ])
+        mysqlConnect.authQuery('DELETE FROM ResetPasswordToken WHERE FK_userId = (SELECT id FROM User WHERE email = ?)', [ email ])
             .then((result) => {
                 resolve(result);
             })
@@ -102,6 +100,18 @@ let expireValidTempPassword = (email) => {
             })
     });
 };
+
+let getUserInfoByEmail = (email) => {
+    return new Promise((resolve, reject) => {
+        mysqlConnect.authQuery('SELECT * FROM User WHERE email = ?', [ email ])
+            .then((result) => {
+                resolve(new userModel(result.results[0].id, result.results[0].email, result.results[0].first_name, result.results[0].last_name, result.results[0].create_date, result.results[0].hash_password, result.results[0].salt));
+            })
+            .catch((err) => {
+                reject(err);
+            });
+    });
+}
 
 module.exports = {
     createSalt: createSalt,
@@ -110,5 +120,6 @@ module.exports = {
     createCookie: createCookie,
     verifyCookie: verifyCookie,
     logLoginRequest: logLoginRequest,
-    validateTempPassword: validateTempPassword
+    generateTempToken: generateTempToken,
+    getUserInfoByEmail: getUserInfoByEmail
 }

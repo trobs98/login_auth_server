@@ -70,9 +70,8 @@ router.post('/signup', (req, res) => {
 });
 
 router.post('/forgotpassword', async (req, res) => {
-    let form = req.body;
+    let email = req.body.email;
 
-    let email = form.email;
     let transporter = nodemailer.createTransport({
         host: emailConfig.host,
         port: emailConfig.port,
@@ -83,19 +82,39 @@ router.post('/forgotpassword', async (req, res) => {
     });
 
     try {
-        let passwordData = await authRoutesHelper.validateTempPassword(email);
+        let tokenData = await authRoutesHelper.generateTempToken(email);
+        let userInfo = await authRoutesHelper.getUserInfoByEmail(email);
 
         let emailResponse = await transporter.sendMail({
             from: emailConfig.auth.user,
             to: email,
             subject: "HAHA You forgot your password.",
-            html: await emailHelper.getForgotPassEmail(passwordData.password, new Date(passwordData.expiration * 1000))
+            html: await emailHelper.getForgotPasswordEmail(userInfo.getId(), userInfo.getFullName(), process.env.CLIENT_URL, tokenData.token, new Date(tokenData.expiration * 1000))
         });
 
         res.send(emailResponse);
     }
     catch (err) {
         res.send(err);
+    }
+});
+
+router.post('/resetpassword', async (req, res) => {
+    let userId = req.body.userId;
+    let password = req.body.password;
+    let token = req.body.token;
+
+    // TODO - Verify token
+
+    let salt = authRoutesHelper.createSalt();
+    let hashPassword = authRoutesHelper.createHashPassword(password, salt);
+
+    try {
+        let result = await mysqlConnect.authQuery('UPDATE User SET hash_password = ? AND salt = ? WHERE id = ?', [ hashPassword, salt, userId ]);
+        res.status(200).redirect(process.env.CLIENT_URL + '/login').send(result);
+    }
+    catch (e) {
+        req.send(err);
     }
 });
 
