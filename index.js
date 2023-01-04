@@ -6,8 +6,8 @@ const authRoutes = require('./routes/auth-routes');
 const authRequest = require('./middleware/authenticate');
 
 const app = express();
-  
-app.use(cors({'credentials': true, origin: true}));
+
+app.use(cors());
 
 // parse requests of content-type - application/json
 app.use(express.json());
@@ -21,5 +21,6 @@ app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
+//app.options('*', cors({credentials: true, origin: true, allowedHeaders: ['Access-Control-Request-Method', 'Access-Control-Request-Headers', 'Origin'], optionsSuccessStatus: 302}));
 app.use(authRequest);
 app.use('/session/', authRoutes);

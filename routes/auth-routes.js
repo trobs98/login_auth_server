@@ -62,7 +62,7 @@ router.post('/signup', (req, res) => {
     
     mysqlConnect.authQuery('INSERT into User(first_name, last_name, email, hash_password, salt, create_date) VALUES (?,?,?,?,?,?)', [ firstName, lastName, email, hashPassword, salt, createDate ])
         .then((result) => {
-            res.send(result);
+            res.status(200).send(result);
         })
         .catch((err) => {
             res.send(err);
