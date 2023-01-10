@@ -1,121 +1,223 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
+const { check, validationResult } = require('express-validator');
 const mysqlConnect = require('../mysql-connect');
 const authRoutesHelper = require('../helper/auth-routes-helper');
 const emailConfig = require('../config/email-config');
 const router = express.Router();
 const dotenv = require('dotenv');
 const emailHelper = require('../helper/email-helper');
+const { ErrorResponse, FailureResponse, SuccessResponse } = require('../models/response-model');
+const { BadRequestError, InteralServerError, UnauthorizedError, NotFoundError } = require('../models/error-model');
 
 dotenv.config();
 
-router.post('/login', (req, res) => {
-    let form = req.body;
+router.post('/login',
+    check('email', 'Email is required.').isEmail().notEmpty().normalizeEmail(),
+    check('password', 'Password must be at minimum 8 characters and at maximum 100 characters').isLength({min: 8, max: 100}).notEmpty(),
+    async (req, res) => {
+        let valResult = validationResult(req);
+        
+        if (valResult.errors.length > 0) {
+            let errorMessage = '';
+            valResult.errors.forEach((error) => {
+                errorMessage += " " + error.msg;
+            });
+
+            let error = new BadRequestError(errorMessage);
+            res.status(error.code).send(new ErrorResponse(error).getResponse());
+        }
+        else {
+            let email = req.body.email;
+            let password = req.body.password;
+
+            try {
+                let userInfo = await authRoutesHelper.getUserInfoByEmail(email);
+
+                let hashPassword = userInfo ? userInfo.getHashPassword() : null;
+                let salt = userInfo ? userInfo.getSalt() : null;
+
+                if ((hashPassword && salt) && authRoutesHelper.verifyPassword(password, hashPassword, salt)) {
+                    let cookie = authRoutesHelper.createJWTCookie(email);
+                    let logResult = await authRoutesHelper.logLoginRequest(cookie, req.socket.remoteAddress);
+                    res.status(201).cookie(process.env.COOKIE_NAME, cookie, { httpOnly: true }).send(new SuccessResponse('Successfully logged in.').getResponse());
+                    //res.status(201).cookie(process.env.COOKIE_NAME, cookie, { httpOnly: false }).send(new SuccessResponse('Successfully logged in.').getResponse());
+                }
+                else {
+                    let error = new UnauthorizedError('Invalid username or password.');
+                    res.status(error.code).send(new FailureResponse(error).getResponse());
+                }
+            }
+            catch (err) {
+                let error = new InteralServerError('Issue logging in your account. Please try again.');
+                res.status(error.code).send(new ErrorResponse(error).getResponse());
+            }
+        }
+});
+
+router.delete('/logout', 
+    async (req, res) => {
+        if (Object.keys(req.cookies).length > 0 && req.cookies[process.env.COOKIE_NAME]) {
+            try {
+                let authCookie = req.cookies[process.env.COOKIE_NAME];
+
+                let result = await authRoutesHelper.expireJWTCookie(authCookie);
+                res.status(200).clearCookie(process.env.COOKIE_NAME, { httpOnly: true }).end();
+            }
+            catch (err) {
+                let error = new InteralServerError('Issue logging out. Please try again later.');
+                res.status(error.code).send(new FailureResponse(error).getResponse());
+            }
+        }
+        else {
+            let error = new NotFoundError('Could not logout, there is no login session.');
+            res.status(error.code).send(new FailureResponse(error).getResponse());
+        }
+});
+
+router.post('/signup', 
+    check('email', 'Email is required.').notEmpty().isEmail().normalizeEmail(),
+    check('password', 'Password must be at minimum 8 characters and at maximum 100 characters.').notEmpty().isLength({min: 8, max: 100}),
+    check('firstName', 'First name is required and cannot be longer than 50 characters.').notEmpty().isLength({max: 50}),
+    check('lastName', 'Last name is required and cannot be longer than 50 characters.').notEmpty().isLength({max: 50}),
+    async (req, res) => {
+        let valResult = validationResult(req);
+
+        if (valResult.errors.length > 0) {
+            let errorMessage = '';
+            valResult.errors.forEach((error) => {
+                errorMessage += " " + error.msg;
+            });
+
+            let error = new BadRequestError(errorMessage);
+            res.status(error.code).send(new ErrorResponse(error).getResponse());
+        }
+        else {
+            try {
+                let email = req.body.email;
+                let emailExist = await authRoutesHelper.getUserInfoByEmail(email);
+
+                if (emailExist) {
+                    let error = new BadRequestError(`An account already exisits with the email ${email}, please create an account using a different email.`);
+                    res.status(error.code).send(new FailureResponse(error).getResponse())
+                }
+                else {
+                    let firstName = req.body.firstName;
+                    let lastName = req.body.lastName;
+                    let password = req.body.password;
+                    let salt = authRoutesHelper.createSalt();
+                    let createDate = Date.now();
+                    let hashPassword = authRoutesHelper.createHashPassword(password, salt);
+                        
+                    let result = await mysqlConnect.authQuery('INSERT into User(first_name, last_name, email, hash_password, salt, create_date) VALUES (?,?,?,?,?,?)', [ firstName, lastName, email, hashPassword, salt, createDate ]);
+                    res.status(200).send(new SuccessResponse('Successfully created account!').getResponse());
+                }
+            }
+            catch (err) {
+                let error = new InteralServerError('Issue inserting your account. Please try again.');
+                res.status(error.code).send(new ErrorResponse(error).getResponse());
+            }
+        }
     
-    // TODO: Validate form
-    let email = form.email;
-    let password = form.password;
+});
 
-    mysqlConnect.authQuery('SELECT * FROM User WHERE email = ? LIMIT 1', [ email ])
-        .then((result) => {
-            let hashPassword = result.results[0].hash_password;
-            let salt = result.results[0].salt;
+router.post('/forgotpassword',
+    check('email', 'Email is required.').notEmpty().isEmail().normalizeEmail(),
+    async (req, res) => {
+        let valResult = validationResult(req);
 
-            if (authRoutesHelper.verifyPassword(password, hashPassword, salt)) {
-                let cookie = authRoutesHelper.createCookie(email);
+        if (valResult.errors.length > 0) {
+            let errorMessage = '';
+            
+            valResult.errors.forEach((error) => {
+                errorMessage += " " + error.msg;
+            })
 
-                authRoutesHelper.logLoginRequest(email, cookie, req.socket.remoteAddress)
-                    .then(() => {
-                        res.status(201).cookie(process.env.COOKIE_NAME, cookie, { httpOnly: true }).send('Valid password.');
-                    })
-                    .catch((err) => {
-                        res.status(500).send(err);
+            let error = new BadRequestError(errorMessage);
+            res.status(error.code).send(new ErrorResponse(error).getResponse());
+        }
+        else {
+            let email = req.body.email;
+            const responseMessage = `If an account exists with the email ${email}, then you will recieve an email with a link to reset your passsword.`;
+            
+            try {
+                let emailExist = await authRoutesHelper.getUserInfoByEmail(email);
+            
+                if (!emailExist) {
+                    res.status(200).send(new SuccessResponse(responseMessage).getResponse());
+                }
+                else {
+                    let transporter = nodemailer.createTransport({
+                        host: emailConfig.host,
+                        port: emailConfig.port,
+                        auth: {
+                            user: emailConfig.auth.user,
+                            pass: emailConfig.auth.pass
+                        }
                     });
+                    let userInfo = await authRoutesHelper.getUserInfoByEmail(email);
+                    let tokenData = await authRoutesHelper.generateTempToken(email);
+
+                    let emailResponse = await transporter.sendMail({
+                        from: emailConfig.auth.user,
+                        to: email,
+                        subject: "HAHA You forgot your password.",
+                        html: await emailHelper.getForgotPasswordEmail(userInfo.getId(), userInfo.getFullName(), process.env.CLIENT_URL, tokenData.token, new Date(tokenData.expiration * 1000))
+                    });
+
+                    res.status(200).send(new SuccessResponse(responseMessage).getResponse());
+                }
+            }
+            catch (err) {
+                let error = new InteralServerError(err);
+                res.status(error.code).send(new ErrorResponse(error).getResponse());
+            }
+        }
+});
+
+router.post('/resetpassword',
+    check('userId', 'UserID is required.').notEmpty().isInt(),
+    check('password', 'Password must be at minimum 8 characters and at maximum 100 characters.').notEmpty().isLength({min: 8, max: 100}),
+    check('token', 'Token is required.').notEmpty(),
+    async (req, res) => {
+        let valResult = validationResult(req);
+
+        if (valResult.errors.length > 0) {
+            let errorMessage = '';
+            
+            valResult.errors.forEach((error) => {
+                errorMessage += " " + error.msg;
+            })
+
+            let error = new BadRequestError(errorMessage);
+            res.status(error.code).send(new ErrorResponse(error).getResponse());
+        }
+
+        let userId = req.body.userId;
+        let password = req.body.password;
+        let token = req.body.token;
+
+        try {
+            let validToken = await authRoutesHelper.verifyTempToken(userId, token);
+            
+            if (validToken) {
+                let salt = authRoutesHelper.createSalt();
+                let hashPassword = authRoutesHelper.createHashPassword(password, salt);
+    
+                let updatePasswordResult = await mysqlConnect.authQuery('UPDATE User SET hash_password = ?, salt = ? WHERE id = ?', [ hashPassword, salt, userId ]);
+                let removeTempTokenResult = await authRoutesHelper.deleteTempTokenByUserId(userId);
+                res.status(200).send(new SuccessResponse('Successfully updated password!').getResponse());
+
             }
             else {
-                res.status(401).send('Invalid password.');
+                let error = new UnauthorizedError('Invalid reset password link. Please request a new one.');
+                res.status(error.code).send(new FailureResponse(error).getResponse());
             }
-        })
-        .catch((err) => {
-            res.status(500).send(err);
-        });
-});
-
-router.delete('/logout', (req, res) => {
-    // TODO: Figure out how to correctly logout
-    res.clearCookie(process.env.COOKIE_NAME, { path: '/' });
-    res.status(200).send();
-});
-
-router.post('/signup', (req, res) => {
-    let form = req.body;
-
-    // TODO: Validate form - ensure account email is unique
-    let firstName = form.firstName;
-    let lastName = form.lastName;
-    let email = form.email;
-    let password = form.password;
-    let salt = authRoutesHelper.createSalt();
-    let createDate = Date.now();
-
-    let hashPassword = authRoutesHelper.createHashPassword(password, salt);
-    
-    mysqlConnect.authQuery('INSERT into User(first_name, last_name, email, hash_password, salt, create_date) VALUES (?,?,?,?,?,?)', [ firstName, lastName, email, hashPassword, salt, createDate ])
-        .then((result) => {
-            res.status(200).send(result);
-        })
-        .catch((err) => {
-            res.send(err);
-        });
-});
-
-router.post('/forgotpassword', async (req, res) => {
-    let email = req.body.email;
-
-    let transporter = nodemailer.createTransport({
-        host: emailConfig.host,
-        port: emailConfig.port,
-        auth: {
-            user: emailConfig.auth.user,
-            pass: emailConfig.auth.pass
         }
-    });
-
-    try {
-        let tokenData = await authRoutesHelper.generateTempToken(email);
-        let userInfo = await authRoutesHelper.getUserInfoByEmail(email);
-
-        let emailResponse = await transporter.sendMail({
-            from: emailConfig.auth.user,
-            to: email,
-            subject: "HAHA You forgot your password.",
-            html: await emailHelper.getForgotPasswordEmail(userInfo.getId(), userInfo.getFullName(), process.env.CLIENT_URL, tokenData.token, new Date(tokenData.expiration * 1000))
-        });
-
-        res.send(emailResponse);
-    }
-    catch (err) {
-        res.send(err);
-    }
-});
-
-router.post('/resetpassword', async (req, res) => {
-    let userId = req.body.userId;
-    let password = req.body.password;
-    let token = req.body.token;
-
-    // TODO - Verify token
-
-    let salt = authRoutesHelper.createSalt();
-    let hashPassword = authRoutesHelper.createHashPassword(password, salt);
-
-    try {
-        let result = await mysqlConnect.authQuery('UPDATE User SET hash_password = ? AND salt = ? WHERE id = ?', [ hashPassword, salt, userId ]);
-        res.status(200).redirect(process.env.CLIENT_URL + '/login').send(result);
-    }
-    catch (e) {
-        req.send(err);
-    }
+        catch (err) {
+            let error = new InteralServerError(err);
+            res.status(error.code).send(new ErrorResponse(error).getResponse());
+        }
 });
 
 module.exports = router;

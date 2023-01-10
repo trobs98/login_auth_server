@@ -21,6 +21,10 @@ app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-//app.options('*', cors({credentials: true, origin: true, allowedHeaders: ['Access-Control-Request-Method', 'Access-Control-Request-Headers', 'Origin'], optionsSuccessStatus: 302}));
 app.use(authRequest);
 app.use('/session/', authRoutes);
+
+// Catch-all route that responds as a 404 - MUST BE LAST MIDDLEWARE
+app.use((req, res, next) => {
+    res.status(404).send(`Request ${req.protocol}://${req.get('host')}${req.originalUrl} not found.`);
+});
