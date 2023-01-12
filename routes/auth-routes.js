@@ -62,7 +62,7 @@ router.delete('/logout',
                 let authCookie = req.cookies[process.env.COOKIE_NAME];
 
                 let result = await authHelper.expireJWTCookie(authCookie);
-                res.status(200).clearCookie(process.env.COOKIE_NAME, { httpOnly: true }).end();
+                res.status(200).clearCookie(process.env.COOKIE_NAME, { httpOnly: true }).send(new SuccessResponse('Successfully logged out.').getResponse());
             }
             catch (err) {
                 let error = new InteralServerError('Issue logging out. Please try again later.');
