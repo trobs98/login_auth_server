@@ -25,6 +25,6 @@ app.use(authRequest);
 app.use('/session/', authRoutes);
 
 // Catch-all route that responds as a 404 - MUST BE LAST MIDDLEWARE
-app.use((req, res, next) => {
+app.use((req, res) => {
     res.status(404).send(`Request ${req.protocol}://${req.get('host')}${req.originalUrl} not found.`);
 });

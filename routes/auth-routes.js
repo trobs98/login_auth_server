@@ -2,7 +2,7 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const { check, validationResult } = require('express-validator');
 const mysqlConnect = require('../mysql-connect');
-const authRoutesHelper = require('../helper/auth-routes-helper');
+const authHelper = require('../helper/auth-helper');
 const emailConfig = require('../config/email-config');
 const router = express.Router();
 const dotenv = require('dotenv');
@@ -32,14 +32,14 @@ router.post('/login',
             let password = req.body.password;
 
             try {
-                let userInfo = await authRoutesHelper.getUserInfoByEmail(email);
+                let userInfo = await authHelper.getUserInfoByEmail(email);
 
                 let hashPassword = userInfo ? userInfo.getHashPassword() : null;
                 let salt = userInfo ? userInfo.getSalt() : null;
 
-                if ((hashPassword && salt) && authRoutesHelper.verifyPassword(password, hashPassword, salt)) {
-                    let cookie = authRoutesHelper.createJWTCookie(email);
-                    let logResult = await authRoutesHelper.logLoginRequest(cookie, req.socket.remoteAddress);
+                if ((hashPassword && salt) && authHelper.verifyPassword(password, hashPassword, salt)) {
+                    let cookie = authHelper.createJWTCookie(email);
+                    let logResult = await authHelper.logLoginRequest(cookie, req.socket.remoteAddress);
                     res.status(201).cookie(process.env.COOKIE_NAME, cookie, { httpOnly: true }).send(new SuccessResponse('Successfully logged in.').getResponse());
                     //res.status(201).cookie(process.env.COOKIE_NAME, cookie, { httpOnly: false }).send(new SuccessResponse('Successfully logged in.').getResponse());
                 }
@@ -61,7 +61,7 @@ router.delete('/logout',
             try {
                 let authCookie = req.cookies[process.env.COOKIE_NAME];
 
-                let result = await authRoutesHelper.expireJWTCookie(authCookie);
+                let result = await authHelper.expireJWTCookie(authCookie);
                 res.status(200).clearCookie(process.env.COOKIE_NAME, { httpOnly: true }).end();
             }
             catch (err) {
@@ -95,7 +95,7 @@ router.post('/signup',
         else {
             try {
                 let email = req.body.email;
-                let emailExist = await authRoutesHelper.getUserInfoByEmail(email);
+                let emailExist = await authHelper.getUserInfoByEmail(email);
 
                 if (emailExist) {
                     let error = new BadRequestError(`An account already exisits with the email ${email}, please create an account using a different email.`);
@@ -105,9 +105,9 @@ router.post('/signup',
                     let firstName = req.body.firstName;
                     let lastName = req.body.lastName;
                     let password = req.body.password;
-                    let salt = authRoutesHelper.createSalt();
+                    let salt = authHelper.createSalt();
                     let createDate = Date.now();
-                    let hashPassword = authRoutesHelper.createHashPassword(password, salt);
+                    let hashPassword = authHelper.createHashPassword(password, salt);
                         
                     let result = await mysqlConnect.authQuery('INSERT into User(first_name, last_name, email, hash_password, salt, create_date) VALUES (?,?,?,?,?,?)', [ firstName, lastName, email, hashPassword, salt, createDate ]);
                     res.status(200).send(new SuccessResponse('Successfully created account!').getResponse());
@@ -141,7 +141,7 @@ router.post('/forgotpassword',
             const responseMessage = `If an account exists with the email ${email}, then you will recieve an email with a link to reset your passsword.`;
             
             try {
-                let emailExist = await authRoutesHelper.getUserInfoByEmail(email);
+                let emailExist = await authHelper.getUserInfoByEmail(email);
             
                 if (!emailExist) {
                     res.status(200).send(new SuccessResponse(responseMessage).getResponse());
@@ -155,8 +155,8 @@ router.post('/forgotpassword',
                             pass: emailConfig.auth.pass
                         }
                     });
-                    let userInfo = await authRoutesHelper.getUserInfoByEmail(email);
-                    let tokenData = await authRoutesHelper.generateTempToken(email);
+                    let userInfo = await authHelper.getUserInfoByEmail(email);
+                    let tokenData = await authHelper.generateTempToken(email);
 
                     let emailResponse = await transporter.sendMail({
                         from: emailConfig.auth.user,
@@ -198,14 +198,14 @@ router.post('/resetpassword',
         let token = req.body.token;
 
         try {
-            let validToken = await authRoutesHelper.verifyTempToken(userId, token);
+            let validToken = await authHelper.verifyTempToken(userId, token);
             
             if (validToken) {
-                let salt = authRoutesHelper.createSalt();
-                let hashPassword = authRoutesHelper.createHashPassword(password, salt);
+                let salt = authHelper.createSalt();
+                let hashPassword = authHelper.createHashPassword(password, salt);
     
                 let updatePasswordResult = await mysqlConnect.authQuery('UPDATE User SET hash_password = ?, salt = ? WHERE id = ?', [ hashPassword, salt, userId ]);
-                let removeTempTokenResult = await authRoutesHelper.deleteTempTokenByUserId(userId);
+                let removeTempTokenResult = await authHelper.deleteTempTokenByUserId(userId);
                 res.status(200).send(new SuccessResponse('Successfully updated password!').getResponse());
 
             }

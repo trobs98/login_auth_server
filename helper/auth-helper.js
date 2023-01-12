@@ -45,6 +45,29 @@ let getJWTCookieData = (cookie) => {
     return jwt.verify(cookie, process.env.COOKIE_TOKEN_SECRET);
 };
 
+let verifyJWTCookie = (cookie, loginIP) => {
+    return new Promise(async (resolve, reject) => {
+        let cookieData = getJWTCookieData(cookie);
+
+        try {
+            let userAuditData = await mysqlConnect.authQuery('SELECT (SELECT email FROM User WHERE id = FK_userId) AS "email", login_IP, cookie, expiry_date FROM UserAudit WHERE cookie = ?', [ cookie ]);
+            
+            if (userAuditData.results.length > 0 && 
+                userAuditData.results[0].email === cookieData.data && 
+                loginIP === userAuditData.results[0].login_IP && 
+                cookieData.exp >= Math.floor(new Date(Date.now()).getTime() / 1000)) {
+                    resolve(true);
+            }
+            else {
+                resolve(false);
+            }
+        }
+        catch (err) {
+            reject(err);
+        }
+    });
+};
+
 let expireJWTCookie = (cookieToken) => {
     return new Promise ((resolve, reject) => {
         mysqlConnect.authQuery('UPDATE UserAudit SET expiry_date = ? WHERE cookie = ?', [ COOKIE_EXPIRY_TIMESTAMP, cookieToken ])
@@ -126,7 +149,7 @@ let deleteTempTokenByUserId = (userId) => {
                 reject(err);
             })
     });
-}
+};
 
 let getTempTokenByUserId = (userId) => {
     return new Promise((resolve, reject) => {
@@ -153,11 +176,6 @@ let verifyTempToken = (userId, token) => {
     return new Promise (async (resolve, reject) => {
         try {
             let hashTokenData = await getTempTokenByUserId(userId);
-
-            console.log('hashTokenData: ', hashTokenData);
-            console.log('token: ', token);
-            console.log('createHashPassword(token, hashTokenData.salt): ', createHashPassword(token, hashTokenData.salt));
-            console.log('Date.now(): ', Math.floor(new Date(Date.now()).getTime() / 1000));
 
             if (hashTokenData && createHashPassword(token, hashTokenData.salt) === hashTokenData.hashToken && hashTokenData.expiration >= Math.floor(new Date(Date.now()).getTime() / 1000)) {
                 resolve(true);
@@ -199,6 +217,7 @@ module.exports = {
     verifyPassword: verifyPassword,
     createJWTCookie: createJWTCookie,
     getJWTCookieData: getJWTCookieData,
+    verifyJWTCookie: verifyJWTCookie,
     expireJWTCookie: expireJWTCookie,
     logLoginRequest: logLoginRequest,
     generateTempToken: generateTempToken,
