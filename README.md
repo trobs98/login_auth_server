@@ -1,6 +1,6 @@
 # Server
 
-This section will describe how the server API works, how the server is structured and how to setup the server
+This section will describe how to setup the server and how to work the server API
 
 ## Setup - WSL2 - Ubuntu
 
@@ -80,3 +80,5 @@ Now to start the server run the following
 ```shell
 npm start
 ```
+
+## API Documentation

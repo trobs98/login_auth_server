@@ -211,6 +211,28 @@ let getUserInfoByEmail = (email) => {
     });
 };
 
+let insertNewUser = (firstName, lastName, email, hashPassword, salt, createDate) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            resolve(await mysqlConnect.authQuery('INSERT into User(first_name, last_name, email, hash_password, salt, create_date) VALUES (?,?,?,?,?,?)', [ firstName, lastName, email, hashPassword, salt, createDate ]));
+        }
+        catch(err) {
+            reject(err);
+        }
+    });
+}
+
+let updateUserPasswordById = (hashPassword, salt, userId) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            resolve(await mysqlConnect.authQuery('UPDATE User SET hash_password = ?, salt = ? WHERE id = ?', [ hashPassword, salt, userId ]));
+        }
+        catch(err) {
+            reject(err);
+        }
+    });
+}
+
 module.exports = {
     createSalt: createSalt,
     createHashPassword: createHashPassword,
@@ -223,5 +245,7 @@ module.exports = {
     generateTempToken: generateTempToken,
     deleteTempTokenByUserId: deleteTempTokenByUserId,
     verifyTempToken: verifyTempToken,
-    getUserInfoByEmail: getUserInfoByEmail
+    getUserInfoByEmail: getUserInfoByEmail,
+    insertNewUser: insertNewUser,
+    updateUserPasswordById: updateUserPasswordById
 }

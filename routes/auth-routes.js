@@ -1,12 +1,12 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const { check, validationResult } = require('express-validator');
-const mysqlConnect = require('../mysql-connect');
-const authHelper = require('../helper/auth-helper');
-const emailConfig = require('../config/email-config');
 const router = express.Router();
 const dotenv = require('dotenv');
+
 const emailHelper = require('../helper/email-helper');
+const authHelper = require('../helper/auth-helper');
+
 const { ErrorResponse, FailureResponse, SuccessResponse } = require('../models/response-model');
 const { BadRequestError, InteralServerError, UnauthorizedError, NotFoundError } = require('../models/error-model');
 
@@ -41,7 +41,6 @@ router.post('/login',
                     let cookie = authHelper.createJWTCookie(email);
                     let logResult = await authHelper.logLoginRequest(cookie, req.socket.remoteAddress);
                     res.status(201).cookie(process.env.COOKIE_NAME, cookie, { httpOnly: true }).send(new SuccessResponse('Successfully logged in.').getResponse());
-                    //res.status(201).cookie(process.env.COOKIE_NAME, cookie, { httpOnly: false }).send(new SuccessResponse('Successfully logged in.').getResponse());
                 }
                 else {
                     let error = new UnauthorizedError('Invalid username or password.');
@@ -108,8 +107,8 @@ router.post('/signup',
                     let salt = authHelper.createSalt();
                     let createDate = Date.now();
                     let hashPassword = authHelper.createHashPassword(password, salt);
-                        
-                    let result = await mysqlConnect.authQuery('INSERT into User(first_name, last_name, email, hash_password, salt, create_date) VALUES (?,?,?,?,?,?)', [ firstName, lastName, email, hashPassword, salt, createDate ]);
+                    
+                    let result = await authHelper.insertNewUser(firstName, lastName, passsword, salt, createDate, hashPassword);
                     res.status(200).send(new SuccessResponse('Successfully created account!').getResponse());
                 }
             }
@@ -147,23 +146,9 @@ router.post('/forgotpassword',
                     res.status(200).send(new SuccessResponse(responseMessage).getResponse());
                 }
                 else {
-                    let transporter = nodemailer.createTransport({
-                        host: emailConfig.host,
-                        port: emailConfig.port,
-                        auth: {
-                            user: emailConfig.auth.user,
-                            pass: emailConfig.auth.pass
-                        }
-                    });
                     let userInfo = await authHelper.getUserInfoByEmail(email);
                     let tokenData = await authHelper.generateTempToken(email);
-
-                    let emailResponse = await transporter.sendMail({
-                        from: emailConfig.auth.user,
-                        to: email,
-                        subject: "HAHA You forgot your password.",
-                        html: await emailHelper.getForgotPasswordEmail(userInfo.getId(), userInfo.getFullName(), process.env.CLIENT_URL, tokenData.token, new Date(tokenData.expiration * 1000))
-                    });
+                    let emailResponse = await emailHelper.sendHTMLEmail(email, "HAHA You forgot your password.", await emailHelper.getForgotPasswordEmail(userInfo.getId(), userInfo.getFullName(), process.env.CLIENT_URL, tokenData.token, new Date(tokenData.expiration * 1000)));
 
                     res.status(200).send(new SuccessResponse(responseMessage).getResponse());
                 }
@@ -204,8 +189,9 @@ router.post('/resetpassword',
                 let salt = authHelper.createSalt();
                 let hashPassword = authHelper.createHashPassword(password, salt);
     
-                let updatePasswordResult = await mysqlConnect.authQuery('UPDATE User SET hash_password = ?, salt = ? WHERE id = ?', [ hashPassword, salt, userId ]);
+                let updatePasswordResult = await authHelper.updateUserPasswordById(hashPassword, salt, userId);
                 let removeTempTokenResult = await authHelper.deleteTempTokenByUserId(userId);
+
                 res.status(200).send(new SuccessResponse('Successfully updated password!').getResponse());
 
             }
