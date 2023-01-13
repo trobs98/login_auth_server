@@ -2,6 +2,7 @@
 
 This section will describe how to setup the server and how to work the server API
 
+
 ## Setup - WSL2 - Ubuntu
 
 Install NVM, NodeJS 16.13.2 and NPM version
@@ -80,5 +81,6 @@ Now to start the server run the following
 ```shell
 npm start
 ```
+
 
 ## API Documentation
