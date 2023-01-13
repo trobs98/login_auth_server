@@ -13,7 +13,8 @@ const { BadRequestError, InteralServerError, UnauthorizedError, NotFoundError } 
 dotenv.config();
 
 router.post('/login',
-    check('email', 'Email is required.').isEmail().notEmpty().normalizeEmail(),
+    check('email', 'Email is required.').notEmpty(),
+    check('email', 'Must be an email format.').isEmail().normalizeEmail(),
     check('password', 'Password must be at minimum 8 characters and at maximum 100 characters').isLength({min: 8, max: 100}).notEmpty(),
     async (req, res) => {
         let valResult = validationResult(req);
@@ -25,7 +26,7 @@ router.post('/login',
             });
 
             let error = new BadRequestError(errorMessage);
-            res.status(error.code).send(new ErrorResponse(error).getResponse());
+            res.status(error.code).send(new FailureResponse(error).getResponse());
         }
         else {
             let email = req.body.email;
@@ -65,7 +66,7 @@ router.delete('/logout',
             }
             catch (err) {
                 let error = new InteralServerError('Issue logging out. Please try again later.');
-                res.status(error.code).send(new FailureResponse(error).getResponse());
+                res.status(error.code).send(new ErrorResponse(error).getResponse());
             }
         }
         else {
@@ -75,7 +76,8 @@ router.delete('/logout',
 });
 
 router.post('/signup', 
-    check('email', 'Email is required.').notEmpty().isEmail().normalizeEmail(),
+    check('email', 'Email is required.').notEmpty(),
+    check('email', 'Must be an email format.').isEmail().normalizeEmail(),
     check('password', 'Password must be at minimum 8 characters and at maximum 100 characters.').notEmpty().isLength({min: 8, max: 100}),
     check('firstName', 'First name is required and cannot be longer than 50 characters.').notEmpty().isLength({max: 50}),
     check('lastName', 'Last name is required and cannot be longer than 50 characters.').notEmpty().isLength({max: 50}),
@@ -89,7 +91,7 @@ router.post('/signup',
             });
 
             let error = new BadRequestError(errorMessage);
-            res.status(error.code).send(new ErrorResponse(error).getResponse());
+            res.status(error.code).send(new FailureResponse(error).getResponse());
         }
         else {
             try {
@@ -121,7 +123,8 @@ router.post('/signup',
 });
 
 router.post('/forgotpassword',
-    check('email', 'Email is required.').notEmpty().isEmail().normalizeEmail(),
+    check('email', 'Email is required.').notEmpty(),
+    check('email', 'Must be an email format.').isEmail().normalizeEmail(),
     async (req, res) => {
         let valResult = validationResult(req);
 
@@ -133,7 +136,7 @@ router.post('/forgotpassword',
             })
 
             let error = new BadRequestError(errorMessage);
-            res.status(error.code).send(new ErrorResponse(error).getResponse());
+            res.status(error.code).send(new FailureResponse(error).getResponse());
         }
         else {
             let email = req.body.email;
@@ -154,14 +157,14 @@ router.post('/forgotpassword',
                 }
             }
             catch (err) {
-                let error = new InteralServerError(err);
+                let error = new InteralServerError("Issue sending the forgot password email. Please try again.");
                 res.status(error.code).send(new ErrorResponse(error).getResponse());
             }
         }
 });
 
 router.post('/resetpassword',
-    check('userId', 'UserID is required.').notEmpty().isInt(),
+    check('userId', 'UserID is required.').notEmpty(),
     check('password', 'Password must be at minimum 8 characters and at maximum 100 characters.').notEmpty().isLength({min: 8, max: 100}),
     check('token', 'Token is required.').notEmpty(),
     async (req, res) => {
@@ -175,34 +178,36 @@ router.post('/resetpassword',
             })
 
             let error = new BadRequestError(errorMessage);
-            res.status(error.code).send(new ErrorResponse(error).getResponse());
+            res.status(error.code).send(new FailureResponse(error).getResponse());
         }
-
-        let userId = req.body.userId;
-        let password = req.body.password;
-        let token = req.body.token;
-
-        try {
-            let validToken = await authHelper.verifyTempToken(userId, token);
+        else {
             
-            if (validToken) {
-                let salt = authHelper.createSalt();
-                let hashPassword = authHelper.createHashPassword(password, salt);
-    
-                let updatePasswordResult = await authHelper.updateUserPasswordById(hashPassword, salt, userId);
-                let removeTempTokenResult = await authHelper.deleteTempTokenByUserId(userId);
+            let userId = req.body.userId;
+            let password = req.body.password;
+            let token = req.body.token;
 
-                res.status(200).send(new SuccessResponse('Successfully updated password!').getResponse());
+            try {
+                let validToken = await authHelper.verifyTempToken(userId, token);
+                
+                if (validToken) {
+                    let salt = authHelper.createSalt();
+                    let hashPassword = authHelper.createHashPassword(password, salt);
+        
+                    let updatePasswordResult = await authHelper.updateUserPasswordById(hashPassword, salt, userId);
+                    let removeTempTokenResult = await authHelper.deleteTempTokenByUserId(userId);
 
+                    res.status(200).send(new SuccessResponse('Successfully updated password!').getResponse());
+
+                }
+                else {
+                    let error = new UnauthorizedError('Invalid reset password link. Please request a new one.');
+                    res.status(error.code).send(new FailureResponse(error).getResponse());
+                }
             }
-            else {
-                let error = new UnauthorizedError('Invalid reset password link. Please request a new one.');
-                res.status(error.code).send(new FailureResponse(error).getResponse());
+            catch (err) {
+                let error = new InteralServerError('Issue resetting password. Please try again.');
+                res.status(error.code).send(new ErrorResponse(error).getResponse());
             }
-        }
-        catch (err) {
-            let error = new InteralServerError(err);
-            res.status(error.code).send(new ErrorResponse(error).getResponse());
         }
 });
 
