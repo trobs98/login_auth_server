@@ -174,7 +174,7 @@ The API Documentation will describe each endpoint, as well as potential response
     "status": "error", 
     "data": { 
                 "name": "InteralServerError", 
-                "message": "Issue logging in your account. Please try again.", 
+                "message": "Issue logging into your account. Please try again.", 
                 "code": 500 
              } 
 }</code></pre>
