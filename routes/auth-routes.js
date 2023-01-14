@@ -17,7 +17,6 @@ router.post('/login',
     check('email', 'Must be an email format.').isEmail().normalizeEmail(),
     check('password', 'Password must be at minimum 8 characters and at maximum 100 characters').isLength({min: 8, max: 100}).notEmpty(),
     async (req, res) => {
-        console.log('req: ', req);
         let valResult = validationResult(req);
         
         if (valResult.errors.length > 0) {
