@@ -17,6 +17,7 @@ router.post('/login',
     check('email', 'Must be an email format.').isEmail().normalizeEmail(),
     check('password', 'Password must be at minimum 8 characters and at maximum 100 characters').isLength({min: 8, max: 100}).notEmpty(),
     async (req, res) => {
+        console.log('req: ', req);
         let valResult = validationResult(req);
         
         if (valResult.errors.length > 0) {
@@ -49,7 +50,7 @@ router.post('/login',
                 }
             }
             catch (err) {
-                let error = new InteralServerError('Issue logging in your account. Please try again.');
+                let error = new InteralServerError('Issue logging into your account. Please try again.');
                 res.status(error.code).send(new ErrorResponse(error).getResponse());
             }
         }
