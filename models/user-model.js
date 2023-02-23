@@ -33,4 +33,11 @@ module.exports = class User {
     getSalt() {
         return this._salt;
     }
+    getUserInfo() {
+        return {
+            'firstName': this.getFirstName(),
+            'lastName': this.getLastName(),
+            'email': this.getEmail()
+        }
+    }
 }

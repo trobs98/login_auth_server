@@ -39,9 +39,11 @@ router.post('/login',
                 let salt = userInfo ? userInfo.getSalt() : null;
 
                 if ((hashPassword && salt) && authHelper.verifyPassword(password, hashPassword, salt)) {
-                    let cookie = authHelper.createJWTCookie(email);
-                    let logResult = await authHelper.logLoginRequest(cookie, req.socket.remoteAddress);
-                    res.status(201).cookie(process.env.COOKIE_NAME, cookie, { httpOnly: true }).send(new SuccessResponse('Successfully logged in.').getResponse());
+                    let userCookie = authHelper.createJWTUserCookie(userInfo.getUserInfo());
+                    let authCookie = authHelper.createJWTAuthCookie(email);
+                    let logResult = await authHelper.logLoginRequest(authCookie, req.socket.remoteAddress);
+                    res.cookie(process.env.USER_DATA_COOKIE_NAME, userCookie);
+                    res.status(201).cookie(process.env.COOKIE_NAME, authCookie, { httpOnly: true }).send(new SuccessResponse('Successfully logged in.').getResponse());
                 }
                 else {
                     let error = new UnauthorizedError('Invalid username or password.');
@@ -110,7 +112,7 @@ router.post('/signup',
                     let createDate = Date.now();
                     let hashPassword = authHelper.createHashPassword(password, salt);
                     
-                    let result = await authHelper.insertNewUser(firstName, lastName, passsword, salt, createDate, hashPassword);
+                    let result = await authHelper.insertNewUser(firstName, lastName, email, hashPassword, salt, createDate);
                     res.status(200).send(new SuccessResponse('Successfully created account!').getResponse());
                 }
             }

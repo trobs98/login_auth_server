@@ -37,9 +37,17 @@ let verifyPassword = (password, hashPassword, salt) => {
     return createHashPassword(password, salt) == hashPassword;
 };
 
-let createJWTCookie = (email) => {
-    return jwt.sign({ data: email }, process.env.COOKIE_TOKEN_SECRET, { expiresIn: '1h' });
+let createJWTAuthCookie = (data) => {
+    return jwt.sign({ data: data }, process.env.COOKIE_TOKEN_SECRET, { expiresIn: '1h' });
 };
+
+/*  This will create a JSON Web Token with the data of a user
+ *  @param {User} - A User object 
+ *  @return A JSON Web Token string
+ */
+let createJWTUserCookie = (userData) => {
+    return jwt.sign({ data: userData }, process.env.USER_DATA_COOKIE_TOKEN_SECRET, { expiresIn: '1h' });
+}
 
 let getJWTCookieData = (cookie) => {
     return jwt.verify(cookie, process.env.COOKIE_TOKEN_SECRET);
@@ -237,7 +245,8 @@ module.exports = {
     createSalt: createSalt,
     createHashPassword: createHashPassword,
     verifyPassword: verifyPassword,
-    createJWTCookie: createJWTCookie,
+    createJWTAuthCookie: createJWTAuthCookie,
+    createJWTUserCookie: createJWTUserCookie,
     getJWTCookieData: getJWTCookieData,
     verifyJWTCookie: verifyJWTCookie,
     expireJWTCookie: expireJWTCookie,
