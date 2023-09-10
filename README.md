@@ -279,8 +279,8 @@ The API Documentation will describe each endpoint, as well as potential response
             <b> REQUIRED: </b>
             <pre>email=[string]      <i>Email is required</i> and <i>Must be an email format</i></pre>
             <pre>password=[string]   <i>Password must be at minimum 8 characters and at maximum 100 characters</i></pre>
-            <pre>firstname=[string]  <i>First name is required and cannot be longer than 50 characters</i></pre>
-            <pre>lastname=[string]  <i>Last name is required and cannot be longer than 50 characters</i></pre>
+            <pre>firstName=[string]  <i>First name is required and cannot be longer than 50 characters</i></pre>
+            <pre>lastName=[string]  <i>Last name is required and cannot be longer than 50 characters</i></pre>
         </td>
     </tr>
     <tr>
@@ -463,7 +463,7 @@ The API Documentation will describe each endpoint, as well as potential response
         <th> Data Params </th>
         <td>
             <b> REQUIRED: </b>
-            <pre>email=[string]      <i>Email is required</i> and <i>Must be an email format</i></pre>
+            <pre>userId=[integer]      <i>userId is required</i></pre>
             <pre>password=[string]   <i>Password must be at minimum 8 characters and at maximum 100 characters</i></pre>
             <pre>token=[string]      <i>Token is required</i></pre>
         </td>
