@@ -219,12 +219,26 @@ describe('Auth Routes', () => {
 
     describe('POST - /session/forgotpassword', () => {
         // Requires a slighly longer timeout than default
-        it('Success', (done) => {
+        it('Success - Email Exists', (done) => {
             chai.request(app)
                 .post('/session/forgotpassword')
                 .set('content-type', 'application/x-www-form-urlencoded')
                 .send({
                     email: TEST_USER_01.email
+                })
+                .end((err, res) => {
+                    expect(err).to.be.null;
+                    expect(res).to.have.status(200);
+                    expect(res.body).to.have.property('status', ResponseStatuses.success);
+                    done();
+                });
+        }).timeout(5000);
+        it("Success - Email Doesn't Exist", (done) => {
+            chai.request(app)
+                .post('/session/forgotpassword')
+                .set('content-type', 'application/x-www-form-urlencoded')
+                .send({
+                    email: "bademail@email.com"
                 })
                 .end((err, res) => {
                     expect(err).to.be.null;
@@ -278,6 +292,23 @@ describe('Auth Routes', () => {
             .end((err, res) => {
                 expect(err).to.be.null;
                 expect(res).to.have.status(400);
+                expect(res.body).to.have.property('status', ResponseStatuses.failure);
+                done();
+            });
+        });
+        // This token won't exist anymore since it was used in success test case
+        it('Fails - Unauthorized', (done) => {
+            chai.request(app)
+            .post('/session/resetpassword')
+            .set('content-type', 'application/x-www-form-urlencoded')
+            .send({
+                userId: TEST_USER_02.id,
+                password: "ThisIsMyNewPassword",
+                token: reset_password_details.token
+            })
+            .end((err, res) => {
+                expect(err).to.be.null;
+                expect(res).to.have.status(401);
                 expect(res.body).to.have.property('status', ResponseStatuses.failure);
                 done();
             });

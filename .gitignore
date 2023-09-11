@@ -2,3 +2,5 @@
 /config
 /test/config/
 .env
+.nyc_output/
+coverage/

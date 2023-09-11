@@ -12,19 +12,6 @@ class APIResponse {
         this._status = status;
     }
 
-    getData() {
-        return this._data;
-    }
-    setData(data) {
-        this._data = data;
-    }
-    getStatus() {
-        return this._status;
-    }
-    setStatus(status) {
-        this._status = status;
-    }
-
     getResponse() {
         return {
             'status': this._status,
