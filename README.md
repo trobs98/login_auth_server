@@ -1,7 +1,13 @@
+
+
 # Server
 
-This section will describe how to setup the server and how to work the server API
-
+The server is a Node JS API that uses the Express framework. It handles the following routes: 
+1. [/session/login](https://github.com/trobs98/login_auth_server/tree/main/#login)    
+2. [/session/logout](https://github.com/trobs98/login_auth_server/tree/main/#logout)
+3. [/session/signup](https://github.com/trobs98/login_auth_server/tree/main/#sign-up)
+4. [/session/forgotpassword](https://github.com/trobs98/login_auth_server/tree/main/#forgot-password)
+5. [/session/resetpassword](https://github.com/trobs98/login_auth_server/tree/main/#reset-password)
 
 ## Setup - WSL2 - Ubuntu
 
@@ -31,10 +37,11 @@ cd config
 touch config.js
 ```
 
-In the **config.js**, add the following code and replace with following:
-server - the *COOKIE_TOKEN_SECRET* and *USER_DATA_COOKIE_TOKEN_SECRET* with corresponding secret strings, the *COOKIE_NAME* with the name the auth cookie will be and the *CLIENT_URL* with the URL a client is running on that is using the server
-mysql - the *host*, *user*, *password*, *database* and *port* with your MySQL credentials (Config is split into the database you'd use for your normal application storage and the database you'd use for your auth storage)
-email - the *host*, *port*, *user* and *password* with your SMTP email credentials
+In the **config.js**, add the following code and replace with following:<br><br>
+**server** - the *COOKIE_TOKEN_SECRET* and *USER_DATA_COOKIE_TOKEN_SECRET* with corresponding secret strings, the *COOKIE_NAME* with the name the auth cookie will be and the *CLIENT_URL* with the URL a client is running on that is using the server<br><br>
+**mysql** - the *host*, *user*, *password*, *database* and *port* with your MySQL credentials (Config is split into the database you'd use for your normal application storage and the database you'd use for your auth storage)<br><br>
+**email** - the *host*, *port*, *user* and *password* with your SMTP email credentials<br><br>
+
 ```javascript
 module.exports = {
     server: {
