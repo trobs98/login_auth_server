@@ -24,55 +24,51 @@ Inside this folder, install the node modules
 npm install
 ```
 
-Inside this folder, create a **.env** file
-```shell
-touch .env
-```
-
-In the **.env** file, add the following key/value pairs and replace the *COOKIE_TOKEN_SECRET* value with your secret, and replace the *CLIENT_URL* value with you frontend URL
-```sh
-COOKIE_TOKEN_SECRET='<SECRET>'
-COOKIE_NAME='AUTH_TOKEN'
-CLIENT_URL = '<FRONTEND URL>'
-```
-
-Inside this folder, create a **config** folder, and inside the config folder, create a **email-config.js** file and **mysql-config.js** file
+Inside this folder, create a **config** folder, and inside the config folder, create a **config.js** file
 ```shell
 mkdir config
 cd config
-touch email-config.js
-touch mysql-config.js
+touch config.js
 ```
 
-In the **email-config.js**, add the following code and replace the *host*, *port*, *user* and *password* with your SMTP email credentials
+In the **config.js**, add the following code and replace with following:
+server - the *COOKIE_TOKEN_SECRET* and *USER_DATA_COOKIE_TOKEN_SECRET* with corresponding secret strings, the *COOKIE_NAME* with the name the auth cookie will be and the *CLIENT_URL* with the URL a client is running on that is using the server
+mysql - the *host*, *user*, *password*, *database* and *port* with your MySQL credentials (Config is split into the database you'd use for your normal application storage and the database you'd use for your auth storage)
+email - the *host*, *port*, *user* and *password* with your SMTP email credentials
 ```javascript
 module.exports = {
-    host: '<SMTP HOST>',
-    port: '<SMTP PORT>',
-    auth: {
-        user: '<SMTP USERNAME>',
-        pass: '<SMTP PASSWORD>'
-    }
-};
-```
-
-In the **mysql-config.js**, add the following code and replace the *host*, *user*, *password*, *database* and *port* with your MySQL credentials (Config is split into the database you'd use for your normal application storage and the database you'd use for your auth storage)
-```javascript
-module.exports = {
-    'Connection' : {
-        host     : '<HOSTNAME>',
-        user     : '<USERNAME>',
-        password : '<PASSWORD>',
-        database : '<DB NAME>',
-        port     : '<PORT>'
+    server: {
+        COOKIE_TOKEN_SECRET: '<COOKIE TOKEN SECRET>',
+        USER_DATA_COOKIE_TOKEN_SECRET: '<USER DATA COOKIE TOKEN SECRET>',
+        COOKIE_NAME: '<NAME>',
+        CLIENT_URL: '<URL>'
     },
-    
-    'AuthConnection' : {
-        host     : '<AUTH HOSTNAME>',
-        user     : '<AUTH USERNAME>',
-        password : '<AUTH PASSWORD>',
-        database : '<AUTH DB NAME>',
-        port     : '<AUTH PORT>'
+    mysql: {
+        'Connection' : {
+            host     : '<HOSTNAME>',
+            user     : '<USERNAME>',
+            password : '<PASSWORD>',
+            database : '<DB NAME>',
+            port     : '<PORT>',
+            multipleStatements: true
+        },
+        
+        'AuthConnection' : {
+            host     : '<AUTH HOSTNAME>',
+            user     : '<AUTH USERNAME>',
+            password : '<AUTH PASSWORD>',
+            database : '<AUTH DB NAME>',
+            port     : '<AUTH PORT>',
+            multipleStatements: true
+        }
+    },
+    email: {
+        host: '<SMTP HOST>',
+        port: '<SMTP PORT>',
+        auth: {
+            user: '<SMTP USERNAME>',
+            pass: '<SMTP PASSWORD>'
+        }
     }
 };
 ```
@@ -82,6 +78,71 @@ Now to start the server run the following
 npm start
 ```
 
+## Testing
+The test cases are located in the **test** folder and are written using mocha (https://mochajs.org/) and chai (https://www.chaijs.com/) 
+
+### Setup & Run
+To setup the test cases, inside the **test** folder create a **config** folder, and inside the config folder, create a **test-config.js** file
+```shell
+cd test
+mkdir config
+cd config
+touch test-config.js
+```
+
+The test config follows the same format as the regular config file, so copy the contents of regular config file into the test config and replace the code with their corresponding values
+
+```javascript
+module.exports = {
+    server: {
+        COOKIE_TOKEN_SECRET: '<COOKIE TOKEN SECRET>',
+        USER_DATA_COOKIE_TOKEN_SECRET: '<USER DATA COOKIE TOKEN SECRET>',
+        COOKIE_NAME: '<NAME>',
+        CLIENT_URL: '<URL>'
+    },
+    mysql: {
+        'Connection' : {
+            host     : '<HOSTNAME>',
+            user     : '<USERNAME>',
+            password : '<PASSWORD>',
+            database : '<DB NAME>',
+            port     : '<PORT>',
+            multipleStatements: true
+        },
+        
+        'AuthConnection' : {
+            host     : '<AUTH HOSTNAME>',
+            user     : '<AUTH USERNAME>',
+            password : '<AUTH PASSWORD>',
+            database : '<AUTH DB NAME>',
+            port     : '<AUTH PORT>',
+            multipleStatements: true
+        }
+    },
+    email: {
+        host: '<SMTP HOST>',
+        port: '<SMTP PORT>',
+        auth: {
+            user: '<SMTP USERNAME>',
+            pass: '<SMTP PASSWORD>'
+        }
+    }
+};
+```
+
+Now to run the test cases run the following
+```shell
+npm test
+```
+
+The command line should provide information on the success of the test cases, and a **coverage** folder will be created, where you can view the code coverage of the test cases.
+This can be accessed by opening the index.html file from the folder in a web browser and navigating through the files.
+
+## Linting
+To lint this project run the following 
+```shell
+npm run lint
+```
 
 ## API Documentation
 The API Documentation will describe each endpoint, as well as potential responses and status codes
