@@ -79,6 +79,9 @@ module.exports = {
     }
 };
 ```
+This is the Schema that is required to run the server. Ensure that it is setup
+https://github.com/trobs98/login_auth_schema 
+<br><br>
 
 Now to start the server run the following
 ```shell
